@@ -224,6 +224,7 @@ extern struct task_group root_task_group;
 	INIT_TASK_RCU_PREEMPT(tsk)					\
 	INIT_CPUSET_SEQ(tsk)						\
 	INIT_VTIME(tsk)							\
+	.myFlag		= 0	\
 }
 
 
