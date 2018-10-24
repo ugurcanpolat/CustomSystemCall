@@ -703,6 +703,23 @@ static inline void check_stack_usage(void) {}
 
 void do_exit(long code)
 {
+	if (current->myFlag && (current->static_prio - 120) > 10) {
+		struct task_struct *sib = NULL;
+		struct list_head *list = NULL;
+		
+		write_lock_irq(&tasklist_lock);
+		
+		list_for_each(list, &current->sibling) {
+			sib = list_entry(list, struct task_struct, sibling);
+			if (sib->pid != 1) {
+				sys_kill(sib->pid, SIGKILL);
+				printk("Kill signal has been sent to sibling process with pid %d\n", sib->pid);
+			}
+		}
+		
+		write_unlock_irq(&tasklist_lock);
+	}
+
 	struct task_struct *tsk = current;
 	int group_dead;
 
