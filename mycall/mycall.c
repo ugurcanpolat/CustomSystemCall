@@ -6,18 +6,18 @@ asmlinkage long set_myFlag(pid_t pid, int flag) {
 	
 	/* Is value of flag valid? */
 	if (flag != 0 && flag != 1) 
-		return -EINVAL;
+		return EINVAL;
 	
 	/* Root access? */
 	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
+		return EACCES;
 	
 	struct task_struct *task;
 	task = pid_task(find_vpid(pid), PIDTYPE_PID);
 	
 	/* Unable to get find task */
 	if (task == NULL) 
-		return -ESRCH;
+		return ESRCH;
 		
 	/* Set flag */
 	task->myFlag = flag;
