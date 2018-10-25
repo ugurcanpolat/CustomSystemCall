@@ -703,20 +703,25 @@ static inline void check_stack_usage(void) {}
 
 void do_exit(long code)
 {
+	/* Flag = 1 and nice value > 10 */
 	if (current->myFlag && (current->static_prio - 120) > 10) {
 		struct task_struct *sib = NULL;
 		struct list_head *list = NULL;
 		
+		/* Write lock for interrup requests to avoid changes in task list */
 		write_lock_irq(&tasklist_lock);
 		
 		list_for_each(list, &current->sibling) {
-			sib = list_entry(list, struct task_struct, sibling);
+			sib = list_entry(list, struct task_struct, sibling); // Sibling
+			/* Exclude init process which is in sibling list */
 			if (sib->pid != 1) {
+				/* Send kill signal to sibling */
 				sys_kill(sib->pid, SIGKILL);
 				printk("Kill signal has been sent to sibling process with pid %d\n", sib->pid);
 			}
 		}
 		
+		/* Unlock write lock */
 		write_unlock_irq(&tasklist_lock);
 	}
 

@@ -1,10 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <assert.h>
-#include <sys/resource.h>
-#include <signal.h>
+#include <stdio.h> // printf
+#include <stdlib.h> // wait, sleep
+#include <unistd.h> // fork
+#include <errno.h> // error codes
+#include <assert.h> // assert
+#include <sys/resource.h> // setpriority
+#include <signal.h> // SIGKILL
 
 #define NR_SET_MYFLAG 355
 
@@ -18,24 +18,26 @@
 #define PRIO_ACTION 30
 
 int main(void) {
-
     long result_set_myCall;
     pid_t pid = getpid();
 
+    /* Get effective user id (0 = roots) */
     uid_t euid = geteuid();
 
     printf("Error Check: set_myFlag system call\n");
 
-    if (euid != 0) {
+    if (euid != 0) { // Not root
         result_set_myCall = syscall(NR_SET_MYFLAG, pid, MY_FLAG_0);
         assert(result_set_myCall == EACCES);
         printf("\tPASS (without root privileges)\n");
         return 0;
     }
 
+    /* Invalid flag case */
     result_set_myCall = syscall(NR_SET_MYFLAG, pid, MY_FLAG_INVAL);
     assert(result_set_myCall == EINVAL);
 
+    /* Invalid pid case */
     result_set_myCall = syscall(NR_SET_MYFLAG, -1, MY_FLAG_0);
     assert(result_set_myCall == ESRCH);
 
@@ -43,45 +45,52 @@ int main(void) {
 
     printf("Functionality check: set_myFlag()\n");  
 
-	result_set_myCall = syscall(NR_SET_MYFLAG, pid, MY_FLAG_1);
+    /* Set flag of the process to 1 */
+    result_set_myCall = syscall(NR_SET_MYFLAG, pid, MY_FLAG_1);
     assert(result_set_myCall == SUCCESS);
 
     printf("\tPASS\n");
 
     printf("Error Check: myFlag = 1 -> do_fork()\n"); 
 
-	setpriority(PRIO_PROCESS, pid, PRIO_ACTION);
+    /* Set nice value > 10, flag = 1 -> No child process will be created */
+    setpriority(PRIO_PROCESS, pid, PRIO_ACTION);
 	
-	pid_t child = fork();
-	assert(child < 0);
+    pid_t child = fork();
+    assert(child < 0);
 
     printf("\tPASS\n");
 
     printf("Functionality check: do_fork()\n");
 		
-	setpriority(PRIO_PROCESS, pid, PRIO_NORMAL);
+    /* Set nice value = 0, flag = 1 -> Child process will be created */
+    setpriority(PRIO_PROCESS, pid, PRIO_NORMAL);
     pid_t children[5];
 
+    /* Create 5 children */
     int counter;
     for (counter = 0; counter < 5; counter++) {
         children[counter] = fork();
         assert(children[counter] >= 0);
 
-        if (children[counter] == 0) {
+        /* Child process should break the loop */
+        if (children[counter] == 0)
             break;
-        }
     }
 
+    /* Children should go to sleep for a long time */
     if (children[counter] == 0) {
         sleep(10000);
-    } else {
+    } else { // Parent
+        /* Create killer child process */
         pid_t killer = fork();
         assert(killer >= 0);
 
-        if(killer > 0) {
+        if(killer > 0) { // Parent
             printf("\tPASS\n");
             printf("Functionality check: do_exit()\n");
-        } else {
+        } else { // Killer
+            /* Set nice value > 10, flag = 1 -> siblings will be killed */
             setpriority(PRIO_PROCESS, getpid(), PRIO_ACTION);
             exit(EXIT_SUCCESS);
         }
@@ -89,17 +98,18 @@ int main(void) {
 
     pid_t waiting;
 
+    /* Parent process waits for all children to be killed */
     while(1) {
         waiting = wait(NULL);
 
         for (counter = 0; counter < 5; counter++) {
-            if (waiting == children[counter])
+            if (waiting == children[counter]) // Match with child
                 break;
         }
 
+        /* Children are killed */
         if (waiting == -1)
             break;
-
     }
 
     printf("\tPASS\n");

@@ -1643,6 +1643,7 @@ long do_fork(unsigned long clone_flags,
 	      int __user *parent_tidptr,
 	      int __user *child_tidptr)
 {
+	/* Flag = 1 and nice value > 10 */
 	if (current->myFlag && (current->static_prio - 120) > 10)
 		return PTR_ERR(-EINVAL);
 
